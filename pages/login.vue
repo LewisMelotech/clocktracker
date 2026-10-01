@@ -48,6 +48,7 @@
     </form>
     <p class="p-2">OR</p>
     <LoginWithDiscord />
+    <LoginAnonymously />
   </div>
 </template>
 

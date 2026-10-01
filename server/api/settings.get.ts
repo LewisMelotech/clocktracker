@@ -146,9 +146,17 @@ export default defineEventHandler(async (handler) => {
 
   const randomName = generateName();
 
+  // On collision, fall back to a random name instead of reusing the taken
+  // one (this previously reused the colliding name, which would crash on
+  // the unique constraint below).
   const username = existingUsername
-    ? user.user_metadata?.full_name
-    : randomName.username;
+    ? randomName.username
+    : (user.user_metadata?.full_name ?? randomName.username);
+
+  // Anonymous Supabase users have no email. UserSettings.email is UNIQUE with
+  // a shared default ("your@address.here"), so a second anonymous user would
+  // collide on that default -- give each one a unique placeholder instead.
+  const email = user.email || `anon-${user.id}@clocktracker.local`;
 
   const newSettings = await prisma.userSettings.create({
     data: {
@@ -156,7 +164,7 @@ export default defineEventHandler(async (handler) => {
       username,
       display_name: user.user_metadata?.full_name || randomName.display_name,
       avatar: user.user_metadata?.avatar_url || "/img/default.png",
-      email: user.email,
+      email,
       charts: {
         create: [
           {
@@ -236,17 +244,20 @@ export default defineEventHandler(async (handler) => {
   });
 
   // connect KoFi payments that were made with the same email address
-  await prisma.koFiPayment.updateMany({
-    where: {
-      email: user.email,
-      user_id: {
-        equals: null,
+  // (skip for anonymous users -- they have no real email to match against)
+  if (user.email) {
+    await prisma.koFiPayment.updateMany({
+      where: {
+        email: user.email,
+        user_id: {
+          equals: null,
+        },
       },
-    },
-    data: {
-      user_id: user.id,
-    },
-  });
+      data: {
+        user_id: user.id,
+      },
+    });
+  }
 
   return addUserKofiLevel({ ...newSettings });
 });

@@ -28,6 +28,7 @@
             Continue with e-mail
           </Button>
           <LoginWithDiscord />
+          <LoginAnonymously />
         </div>
       </div>
     </section>
@@ -143,6 +144,7 @@
           Continue with e-mail
         </Button>
         <LoginWithDiscord />
+        <LoginAnonymously />
       </div>
     </section>
 
