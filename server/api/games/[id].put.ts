@@ -6,6 +6,7 @@ import {
   findOrCreateStorytellerChildGame,
 } from "~/server/utils/childGame";
 import { sendPushNotifications } from "~/server/utils/sendPushNotifications";
+import { isAdmin } from "~/server/utils/permissions";
 
 export default defineEventHandler(async (handler) => {
   const user: User | null = handler.context.user;
@@ -60,12 +61,19 @@ export default defineEventHandler(async (handler) => {
     },
   });
 
-  if (!existingGame || existingGame.user_id !== user.id) {
+  if (
+    !existingGame ||
+    (existingGame.user_id !== user.id && !(await isAdmin(user.id)))
+  ) {
     throw createError({
       status: 404,
       statusMessage: "Not Found",
     });
   }
+
+  // Admins can edit other users' games, so tagging and ownership below are
+  // always done on behalf of the game's owner rather than the editor.
+  const ownerId = existingGame.user_id;
 
   // Snapshot existing grimoire state before any modifications
   const existingGrimoires = await prisma.grimoire.findMany({
@@ -120,7 +128,7 @@ export default defineEventHandler(async (handler) => {
     },
     data: {
       date: new Date(body.date),
-      user_id: user.id,
+      user_id: ownerId,
       script: body.script,
       script_id: body.script_id,
       storyteller: body.storyteller,
@@ -353,7 +361,7 @@ export default defineEventHandler(async (handler) => {
   );
 
   for (const id of taggedPlayers) {
-    if (!id || id === user.id) continue;
+    if (!id || id === ownerId) continue;
 
     // Reduce grimoire to find all tokens that have this player_id
     const player_characters = game.grimoire.reduce(
@@ -409,7 +417,7 @@ export default defineEventHandler(async (handler) => {
   }
 
   // Notify tagged players
-  const playerIdsToNotify = [...taggedPlayers].filter((id): id is string => !!id && id !== user.id);
+  const playerIdsToNotify = [...taggedPlayers].filter((id): id is string => !!id && id !== ownerId);
   if (playerIdsToNotify.length > 0) {
     void sendPushNotifications({
       userIds: playerIdsToNotify,
@@ -429,7 +437,7 @@ export default defineEventHandler(async (handler) => {
           username: storyteller.replace("@", ""),
           friends: {
             some: {
-              user_id: user.id,
+              user_id: ownerId,
             },
           },
         },

@@ -744,7 +744,7 @@
                     />
                 </Dialog>
                 <div
-                    v-if="isMe"
+                    v-if="isMe || (isAdminViewer && !game.data.waiting_for_confirmation)"
                     class="absolute top-3 right-3"
                     id="menu-controls"
                 >
@@ -767,9 +767,10 @@
                                 >
                                     <div
                                         v-if="
-                                            game.data
+                                            isMe &&
+                                            (game.data
                                                 .waiting_for_confirmation ||
-                                            similarGames.length > 0
+                                            similarGames.length > 0)
                                         "
                                         class="w-full"
                                     >
@@ -806,6 +807,7 @@
                                     <div class="w-full">
                                         <MenuItem
                                             v-if="
+                                                isMe &&
                                                 !game.data
                                                     .waiting_for_confirmation
                                             "
@@ -834,7 +836,7 @@
                                                 <div id="edit-game">Edit</div>
                                             </ButtonSubmenu>
                                         </MenuItem>
-                                        <MenuItem>
+                                        <MenuItem v-if="isMe">
                                             <ButtonSubmenu
                                                 @click="deleteGame(false)"
                                                 :icon="
@@ -866,7 +868,7 @@
                                             </ButtonSubmenu>
                                         </MenuItem>
                                         <MenuItem
-                                            v-if="game.data.parent_game_id"
+                                            v-if="isMe && game.data.parent_game_id"
                                         >
                                             <ButtonSubmenu
                                                 @click="deleteGame(true)"
@@ -898,7 +900,7 @@
                                             </ButtonSubmenu>
                                         </MenuItem>
                                     </div>
-                                    <div class="w-full">
+                                    <div v-if="isMe" class="w-full">
                                         <MenuItem v-if="canPostToBGG">
                                             <ButtonSubmenu
                                                 @click="initPostToBGG"
@@ -1044,6 +1046,11 @@ const isMe = computed(() => {
 
     return false;
 });
+
+// Admins can edit any game's grimoire, but the rest of the owner menu stays owner-only.
+const isAdminViewer = computed(
+    () => me.value.status === Status.SUCCESS && me.value.data.is_admin,
+);
 
 watchEffect(() => {
     if (

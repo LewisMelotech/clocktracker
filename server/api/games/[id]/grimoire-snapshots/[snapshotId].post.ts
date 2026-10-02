@@ -1,6 +1,7 @@
 import type { SupabaseUser as User } from "~/server/utils/supabaseUser";
 import { Alignment } from "~/server/generated/prisma/client";
 import { prisma } from "~/server/utils/prisma";
+import { isAdmin } from "~/server/utils/permissions";
 
 type SnapshotToken = {
   role_id: string | null;
@@ -50,7 +51,7 @@ export default defineEventHandler(async (handler) => {
     select: { user_id: true },
   });
 
-  if (!game || game.user_id !== user.id) {
+  if (!game || (game.user_id !== user.id && !(await isAdmin(user.id)))) {
     throw createError({
       status: 404,
       statusMessage: "Not Found",

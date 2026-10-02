@@ -3,7 +3,7 @@
     <section class="py-6">
       <h2 class="font-sorts text-4xl text-center">Edit Game</h2>
       <ClientOnly>
-        <GameEditor :game="game" :gameId="(route.params.id as string)" @submit="submitGame" :inFlight="inFlight" />
+        <GameEditor :game="game" :gameId="(route.params.id as string)" :ownerId="savedGame.data.value?.user_id" @submit="submitGame" :inFlight="inFlight" />
       </ClientOnly>
     </section>
   </StandardTemplate>
@@ -27,7 +27,11 @@ if (savedGame.error.value) {
 }
 
 if (savedGame.data.value?.user_id !== user.value?.id) {
-  router.push("/403");
+  // Admins can edit any game, not just their own.
+  const settings = await useFetch<{ is_admin: boolean }>("/api/settings");
+  if (!settings.data.value?.is_admin) {
+    router.push("/403");
+  }
 }
 
 useHead({

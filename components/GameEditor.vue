@@ -673,6 +673,8 @@ const props = defineProps<{
   inFlight: boolean;
   editingMultipleGames?: boolean;
   gameId?: string;
+  // The game's owner, when it may differ from the signed-in user (an admin editing someone else's game).
+  ownerId?: string;
   game: {
     date: string;
     script: string;
@@ -767,6 +769,7 @@ type Character = {
 };
 
 const user = useUser();
+const ownerId = computed(() => props.ownerId ?? user.value?.id);
 const me = useMe();
 const games = useGames();
 const friends = useFriends();
@@ -1438,7 +1441,7 @@ watch(
 
     value.forEach((page, i) => {
       page.tokens.forEach((token, j) => {
-        if (!!token.player_id && token.player_id === user.value?.id) {
+        if (!!token.player_id && token.player_id === ownerId.value) {
           const lastCharacter = myCharacters.at(-1);
           const sameAsLast =
             lastCharacter &&
@@ -1500,7 +1503,7 @@ watch(
 function applyMyRoleToGrimoire() {
   props.game.grimoire.forEach((page) => {
     page.tokens.forEach((token) => {
-      if (!(!!token.player_id && token.player_id === user.value?.id)) return;
+      if (!(!!token.player_id && token.player_id === ownerId.value)) return;
 
       const playerRole = props.game.player_characters[0].role;
       const relatedRole = props.game.player_characters[0].related_role;
