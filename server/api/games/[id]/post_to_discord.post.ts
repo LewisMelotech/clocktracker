@@ -5,9 +5,21 @@ import dayjs from "dayjs";
 import { prisma } from "~/server/utils/prisma";
 import { isAdmin } from "~/server/utils/permissions";
 import { siteOrigin } from "~/server/utils/siteOrigin";
+import { renderGrimoireImage } from "~/server/utils/renderGrimoireImage";
 
-// Posts a game's grimoire to Discord as an embed card, through the channel
-// webhook in DISCORD_WEBHOOK_URL.
+// Posts a game to Discord as an embed card, through the channel webhook in
+// DISCORD_WEBHOOK_URL. The card carries a rendered image of the final
+// grimoire; if there's no grimoire (or drawing it fails) the grimoire is
+// listed as text instead.
+
+const ROLE_IMAGE_SELECT = {
+  id: true,
+  name: true,
+  token_url: true,
+  type: true,
+  initial_alignment: true,
+  custom_role: true,
+};
 
 const BASE_SCRIPT_LOGOS: Record<string, string> = {
   "Trouble Brewing": "/img/trouble_brewing.png",
@@ -107,11 +119,17 @@ export default defineEventHandler(async (handler) => {
       demon_bluffs: {
         select: {
           name: true,
+          role: {
+            select: ROLE_IMAGE_SELECT,
+          },
         },
       },
       fabled: {
         select: {
           name: true,
+          role: {
+            select: ROLE_IMAGE_SELECT,
+          },
         },
       },
       grimoire: {
@@ -123,9 +141,10 @@ export default defineEventHandler(async (handler) => {
               order: true,
               player_name: true,
               role: {
-                select: {
-                  name: true,
-                },
+                select: ROLE_IMAGE_SELECT,
+              },
+              related_role: {
+                select: ROLE_IMAGE_SELECT,
               },
               player: {
                 select: {
@@ -178,9 +197,13 @@ export default defineEventHandler(async (handler) => {
     : game.storyteller ||
       (game.is_storyteller ? game.user?.display_name : null);
 
+  // date is a calendar date stored as midnight UTC.
+  const date = dayjs(game.date.toISOString().slice(0, 10)).format(
+    "MMMM D, YYYY"
+  );
+
   const details = [
-    // date is a calendar date stored as midnight UTC.
-    dayjs(game.date.toISOString().slice(0, 10)).format("MMMM D, YYYY"),
+    date,
     game.location ? escapeMarkdown(game.location) : null,
     storyteller ? `Storyteller: ${escapeMarkdown(storyteller)}` : null,
     RESULTS[game.win_v2] ? `**${RESULTS[game.win_v2]}**` : null,
@@ -190,6 +213,35 @@ export default defineEventHandler(async (handler) => {
 
   // The last grimoire page is the end-of-game state.
   const tokens = game.grimoire[game.grimoire.length - 1]?.tokens ?? [];
+
+  let image: Buffer | null = null;
+  // What the image couldn't show in full (names the font can't draw, more
+  // bluffs/fabled than fit) still gets listed as text.
+  let incomplete = { grimoire: true, demonBluffs: true, fabled: true };
+  if (tokens.length > 0) {
+    try {
+      ({ png: image, incomplete } = await renderGrimoireImage({
+        script: game.script,
+        result: RESULTS[game.win_v2],
+        resultColor:
+          "#" + COLORS[game.win_v2].toString(16).padStart(6, "0"),
+        date,
+        storyteller: storyteller ?? null,
+        tokens: tokens.map((token) => ({
+          alignment: token.alignment,
+          is_dead: token.is_dead,
+          role: token.role,
+          related_role: token.related_role,
+          player_name: token.player?.display_name || token.player_name,
+        })),
+        demonBluffs: game.demon_bluffs,
+        fabled: game.fabled,
+      }));
+    } catch (error) {
+      console.error("Rendering grimoire image failed", gameId, error);
+    }
+  }
+
   const lines = tokens
     .filter((token) => token.role || token.player_name || token.player)
     .map((token) => {
@@ -205,9 +257,10 @@ export default defineEventHandler(async (handler) => {
       return text;
     });
 
-  // Split the grimoire across as many fields as it needs.
+  // Split the grimoire across as many fields as it needs. The image already
+  // shows the grimoire, bluffs and fabled, so only list what it doesn't.
   let chunk: string[] = [];
-  for (const line of lines) {
+  for (const line of incomplete.grimoire ? lines : []) {
     if ([...chunk, line].join("\n").length > FIELD_LIMIT) {
       fields.push({
         name: fields.length === 0 ? "Grimoire" : "​",
@@ -235,7 +288,7 @@ export default defineEventHandler(async (handler) => {
     });
   }
 
-  if (game.demon_bluffs.length > 0) {
+  if (incomplete.demonBluffs && game.demon_bluffs.length > 0) {
     fields.push({
       name: "Demon bluffs",
       value: game.demon_bluffs
@@ -246,7 +299,7 @@ export default defineEventHandler(async (handler) => {
     });
   }
 
-  if (game.fabled.length > 0) {
+  if (incomplete.fabled && game.fabled.length > 0) {
     fields.push({
       name: "Fabled",
       value: game.fabled
@@ -257,42 +310,63 @@ export default defineEventHandler(async (handler) => {
     });
   }
 
+  const payload = {
+    // Player names are free text, so never let them ping anyone.
+    allowed_mentions: { parse: [] },
+    embeds: [
+      {
+        title: (game.script || "Custom script").slice(0, 256),
+        url: `${origin}/game/${gameId}`,
+        description: details.join("\n"),
+        color: COLORS[game.win_v2],
+        author: game.user
+          ? {
+              name: (game.user.display_name || game.user.username).slice(0, 256),
+              url: `${origin}/@${game.user.username}`,
+              icon_url: absolute(game.user.avatar),
+            }
+          : undefined,
+        thumbnail: {
+          url: absolute(
+            game.associated_script?.logo ??
+              BASE_SCRIPT_LOGOS[game.script] ??
+              "/img/custom-script.webp"
+          ),
+        },
+        image: image ? { url: "attachment://grimoire.png" } : undefined,
+        fields: trimFields(fields),
+        footer: {
+          text: "ClockTracker",
+        },
+        timestamp: game.date.toISOString(),
+      },
+    ],
+  };
+
+  let body: string | FormData;
+  if (image) {
+    body = new FormData();
+    body.append(
+      "payload_json",
+      JSON.stringify({
+        ...payload,
+        attachments: [{ id: 0, filename: "grimoire.png" }],
+      })
+    );
+    body.append(
+      "files[0]",
+      new Blob([image], { type: "image/png" }),
+      "grimoire.png"
+    );
+  } else {
+    body = JSON.stringify(payload);
+  }
+
   const response = await fetch(webhookUrl, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      // Player names are free text, so never let them ping anyone.
-      allowed_mentions: { parse: [] },
-      embeds: [
-        {
-          title: game.script.slice(0, 256),
-          url: `${origin}/game/${gameId}`,
-          description: details.join("\n"),
-          color: COLORS[game.win_v2],
-          author: game.user
-            ? {
-                name: (game.user.display_name || game.user.username).slice(0, 256),
-                url: `${origin}/@${game.user.username}`,
-                icon_url: absolute(game.user.avatar),
-              }
-            : undefined,
-          thumbnail: {
-            url: absolute(
-              game.associated_script?.logo ??
-                BASE_SCRIPT_LOGOS[game.script] ??
-                "/img/custom-script.webp"
-            ),
-          },
-          fields: trimFields(fields),
-          footer: {
-            text: "ClockTracker",
-          },
-          timestamp: game.date.toISOString(),
-        },
-      ],
-    }),
+    // fetch sets the multipart boundary itself.
+    headers: image ? undefined : { "Content-Type": "application/json" },
+    body,
   });
 
   if (!response.ok) {
