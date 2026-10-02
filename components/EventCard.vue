@@ -329,10 +329,7 @@ function scriptLink(event: { script: string; script_id: number | null }) {
 
   if (event.script_id) return `/scripts/${event.script.replaceAll(" ", "_")}`;
 
-  return `https://botcscripts.com/?search=${event.script.replace(
-    / /g,
-    "+"
-  )}&script_type=&include=&exclude=&edition=&author=`;
+  return `/script-search?name=${encodeURIComponent(event.script)}`;
 }
 
 function deleteEvent() {

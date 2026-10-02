@@ -1,12 +1,11 @@
 import type { Script } from "~/server/generated/prisma/client";
 import { prisma } from "./prisma";
-
-const BOTCSCRIPTS_BASE = "https://www.botcscripts.com";
+import { scriptSourceOrigin } from "./scriptsSource";
 const PERMANENT_FAILURE_STATUSES = new Set([404, 410, 500]);
 
 type ScriptLookup = Pick<
   Script,
-  "id" | "script_id" | "version" | "version_pk" | "is_custom_script"
+  "id" | "script_id" | "version" | "version_pk" | "is_custom_script" | "json_url"
 >;
 
 function isOfficialBotcScript(script: ScriptLookup): boolean {
@@ -28,7 +27,7 @@ async function resolveVersionPk(script: ScriptLookup): Promise<number | null> {
     return script.version_pk;
   }
 
-  const lookupUrl = `${BOTCSCRIPTS_BASE}/api/script_ids/${script.script_id}/`;
+  const lookupUrl = `${scriptSourceOrigin(script)}/api/script_ids/${script.script_id}/`;
   let response: Response;
 
   try {
@@ -88,7 +87,7 @@ export async function fetchScriptJsonRoles(
     return null;
   }
 
-  const url = `${BOTCSCRIPTS_BASE}/api/scripts/${versionPk}/json`;
+  const url = `${scriptSourceOrigin(script)}/api/scripts/${versionPk}/json`;
   let response: Response;
 
   try {

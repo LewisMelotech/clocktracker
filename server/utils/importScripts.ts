@@ -1,7 +1,7 @@
 import type { PrismaClient } from "~/server/generated/prisma/client";
 import axios from "axios";
+import { scriptsSourceUrl } from "./scriptsSource";
 
-const BASE_URL = "https://www.botcscripts.com";
 const PAGE_DELAY_MS = 250;
 
 type ScriptVersionResult = {
@@ -10,7 +10,7 @@ type ScriptVersionResult = {
   name: string;
   version: string;
   script_type: string;
-  author: string;
+  author: string | null;
 };
 
 type ScriptVersionsResponse = {
@@ -21,7 +21,7 @@ type ScriptVersionsResponse = {
 };
 
 function fullUrl(href: string) {
-  return BASE_URL + href;
+  return scriptsSourceUrl() + href;
 }
 
 function toScriptRecord(script: ScriptVersionResult) {
@@ -32,7 +32,7 @@ function toScriptRecord(script: ScriptVersionResult) {
     version_pk: script.pk,
     name: script.name,
     version: script.version,
-    author: script.author,
+    author: script.author ?? "",
     type: script.script_type,
     json_url: fullUrl(`/script/${script_id}/${script.version}/download`),
     pdf_url: fullUrl(`/script/${script_id}/${script.version}/download_pdf`),
@@ -62,7 +62,7 @@ async function upsertScript(
 
 async function fetchScriptsPage(page: number) {
   const response = await axios.get<ScriptVersionsResponse>(
-    `${BASE_URL}/api/scripts/?ordering=-pk&page=${page}`
+    `${scriptsSourceUrl()}/api/scripts/?ordering=-pk&page=${page}`
   );
 
   return response.data;
@@ -79,28 +79,46 @@ export async function importScripts(prisma: PrismaClient) {
     update: {},
   });
 
-  const needsFullSync = state.last_version_pk === 0;
+  let page = 1;
+  let response = await fetchScriptsPage(page);
+
+  // If the newest script on the source is older than the last one we
+  // imported, the stored progress belongs to a different source (for example
+  // after switching SCRIPTS_SOURCE_URL), so start again from scratch.
+  const newestPk = Math.max(0, ...response.results.map((s) => s.pk));
+  const sourceChanged = newestPk < state.last_version_pk;
+  const lastVersionPk = sourceChanged ? 0 : state.last_version_pk;
+  const needsFullSync = lastVersionPk === 0;
 
   if (needsFullSync) {
-    console.log("Running full script import (bootstrap)...");
+    console.log(
+      `Running full script import from ${scriptsSourceUrl()} (bootstrap)...`
+    );
   }
 
-  let page = 1;
   let imported = 0;
-  let maxPk = state.last_version_pk;
+  let maxPk = lastVersionPk;
   let reachedKnownScripts = false;
 
   while (!reachedKnownScripts) {
     console.log(`Fetching script page ${page}...`);
-    const response = await fetchScriptsPage(page);
+    if (page > 1) {
+      response = await fetchScriptsPage(page);
+    }
 
     for (const script of response.results) {
-      if (!needsFullSync && script.pk <= state.last_version_pk) {
+      if (!needsFullSync && script.pk <= lastVersionPk) {
         reachedKnownScripts = true;
         break;
       }
 
-      await upsertScript(prisma, script);
+      try {
+        await upsertScript(prisma, script);
+      } catch (err) {
+        // One bad record shouldn't abort the whole import
+        console.error(`Failed to import script version ${script.pk}:`, err);
+        continue;
+      }
       maxPk = Math.max(maxPk, script.pk);
       imported++;
     }
@@ -113,7 +131,7 @@ export async function importScripts(prisma: PrismaClient) {
     await sleep(PAGE_DELAY_MS);
   }
 
-  if (maxPk > state.last_version_pk) {
+  if (maxPk !== state.last_version_pk) {
     await prisma.scriptImportState.update({
       where: { id: 1 },
       data: { last_version_pk: maxPk },

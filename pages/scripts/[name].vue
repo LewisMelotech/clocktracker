@@ -514,7 +514,10 @@ const scriptLink = computed(() => {
   else if (script.value.website) return script.value.website;
   else if (script.value.is_custom_script) return undefined;
   else if (/^\d+$/.test(script.value.script_id)) {
-    return `https://botcscripts.com/script/${script.value.script_id}/${script.value.version}`;
+    const origin = script.value.json_url
+      ? new URL(script.value.json_url).origin
+      : "https://botcscripts.com";
+    return `${origin}/script/${script.value.script_id}/${script.value.version}`;
   }
   return undefined;
 });

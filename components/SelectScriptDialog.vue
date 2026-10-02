@@ -147,7 +147,7 @@
                 <div class="flex justify-around gap-8 pb-4">
                     <button
                         class="flex-1 w-1 hover:bg-stone-800 rounded-lg hover:shadow-xl"
-                        @click.prevent="emit('selectScript', troubleBrewing!)"
+                        @click.prevent="selectBaseScript('Trouble Brewing')"
                     >
                         <img
                             src="/img/trouble_brewing.png"
@@ -156,7 +156,7 @@
                     </button>
                     <button
                         class="flex-1 w-1 hover:bg-stone-800 rounded-lg hover:shadow-xl"
-                        @click.prevent="emit('selectScript', badMoonRising!)"
+                        @click.prevent="selectBaseScript('Bad Moon Rising')"
                     >
                         <img
                             src="/img/bad_moon_rising.png"
@@ -165,7 +165,7 @@
                     </button>
                     <button
                         class="flex-1 w-1 hover:bg-stone-800 rounded-lg hover:shadow-xl"
-                        @click.prevent="emit('selectScript', sectsAndViolets!)"
+                        @click.prevent="selectBaseScript('Sects and Violets')"
                     >
                         <img
                             src="/img/sects_and_violets.png"
@@ -344,15 +344,12 @@ const baseScriptData = await $fetch(
 );
 baseScripts.value = baseScriptData ?? [];
 
-const troubleBrewing = computed(() =>
-    baseScripts.value.find((script) => script.name === "Trouble Brewing"),
-);
-const sectsAndViolets = computed(() =>
-    baseScripts.value.find((script) => script.name === "Sects and Violets"),
-);
-const badMoonRising = computed(() =>
-    baseScripts.value.find((script) => script.name === "Bad Moon Rising"),
-);
+// Fall back to a plain script name if the base script hasn't been imported,
+// rather than handing the editor nothing.
+function selectBaseScript(name: string) {
+    const script = baseScripts.value.find((script) => script.name === name);
+    emit("selectScript", script ?? { name, id: null });
+}
 
 const selectableGames = computed(
     () =>

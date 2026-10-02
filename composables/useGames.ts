@@ -484,10 +484,7 @@ export const useGames = defineStore("games", {
           }
         }
 
-        return `https://botcscripts.com/?search=${game.script.replace(
-          / /g,
-          "+"
-        )}&script_type=&include=&exclude=&edition=&author=`;
+        return `/script-search?name=${encodeURIComponent(game.script)}`;
       };
     },
   },

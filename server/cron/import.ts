@@ -12,6 +12,7 @@ export default defineCronHandler(
     }),
   {
     timeZone: "America/New_York",
-    runOnInit: false,
+    // Also sync on startup, so a new SCRIPTS_SOURCE_URL takes effect straight away
+    runOnInit: true,
   }
 );
