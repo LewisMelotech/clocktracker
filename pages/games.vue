@@ -20,7 +20,6 @@ import { Status } from "~/composables/useFetchStatus";
 
 definePageMeta({
   middleware: [
-    "auth",
     () => {
       if (!useRuntimeConfig().public.allGamesBrowsing) {
         return navigateTo("/");

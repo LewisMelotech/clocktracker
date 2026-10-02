@@ -243,6 +243,22 @@ export default defineEventHandler(async (handler) => {
     },
   });
 
+  // Single-community instances: make the new user friends with everyone, so
+  // friend-only visibility, tagging and storyteller links work for all users.
+  if (useRuntimeConfig().public.singleCommunity) {
+    const others = await prisma.userSettings.findMany({
+      where: { user_id: { not: user.id } },
+      select: { user_id: true },
+    });
+
+    await prisma.friend.createMany({
+      data: others.flatMap(({ user_id }) => [
+        { user_id: user.id, friend_id: user_id },
+        { user_id, friend_id: user.id },
+      ]),
+    });
+  }
+
   // connect KoFi payments that were made with the same email address
   // (skip for anonymous users -- they have no real email to match against)
   if (user.email) {

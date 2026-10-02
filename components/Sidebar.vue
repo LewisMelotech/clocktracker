@@ -37,6 +37,17 @@
                 </NavLink>
             </li>
 
+            <li v-if="allGamesBrowsing">
+                <NavLink
+                    id="all-games"
+                    to="/games"
+                    icon="clockmaker"
+                    title="All Games"
+                >
+                    <span>All Games</span>
+                </NavLink>
+            </li>
+
             <template v-if="me.status === Status.SUCCESS">
                 <li>
                     <NavLink
@@ -59,16 +70,6 @@
                         <span>My Games</span>
                     </NavLink>
                 </li>
-                <li v-if="allGamesBrowsing">
-                    <NavLink
-                        id="all-games"
-                        to="/games"
-                        icon="clockmaker"
-                        title="All Games"
-                    >
-                        <span>All Games</span>
-                    </NavLink>
-                </li>
                 <li>
                     <NavLink
                         id="my-stats"
@@ -84,15 +85,15 @@
                         id="friends"
                         to="/friends"
                         icon="eviltwin"
-                        title="My Friends"
+                        :title="singleCommunity ? 'Players' : 'My Friends'"
                         :notificationCount="
                             friends.getRequestCount(me.data.user_id)
                         "
                     >
-                        My Friends
+                        {{ singleCommunity ? "Players" : "My Friends" }}
                     </NavLink>
                 </li>
-                <li>
+                <li v-if="!singleCommunity">
                     <NavLink
                         id="communities"
                         to="/community"
@@ -223,6 +224,7 @@ const me = useMe();
 const friends = useFriends();
 const featureFlags = useFeatureFlags();
 const allGamesBrowsing = useRuntimeConfig().public.allGamesBrowsing;
+const singleCommunity = useRuntimeConfig().public.singleCommunity;
 const forumUnreadCount = ref(0);
 const canAccessAdmin = ref(false);
 

@@ -5,6 +5,7 @@ import { prisma } from "~/server/utils/prisma";
 import { hasPermission } from "~/server/utils/permissions";
 
 // Lists every game on this instance, regardless of community membership.
+// Signed-out visitors can use it too, so guests browse without an account.
 // Intended for self-hosted, single-community instances; toggle it with
 // NUXT_PUBLIC_ALL_GAMES_BROWSING=false.
 export default defineEventHandler(async (handler) => {
@@ -17,21 +18,19 @@ export default defineEventHandler(async (handler) => {
     });
   }
 
-  if (!me) {
-    throw createError({
-      status: 401,
-      statusMessage: "Unauthorized",
-    });
-  }
+  // Signed-out guests can browse too (view-only); they only see public games.
+  const canViewPrivate = me
+    ? await hasPermission(me.id, "VIEW_PRIVATE_GAMES")
+    : false;
 
-  const canViewPrivate = await hasPermission(me.id, "VIEW_PRIVATE_GAMES");
-
-  const friendIds = (
-    await prisma.friend.findMany({
-      where: { user_id: me.id },
-      select: { friend_id: true },
-    })
-  ).map((f) => f.friend_id);
+  const friendIds = me
+    ? (
+        await prisma.friend.findMany({
+          where: { user_id: me.id },
+          select: { friend_id: true },
+        })
+      ).map((f) => f.friend_id)
+    : [];
 
   // Public games from everyone, plus your own and your friends' games.
   // PERSONAL games and profiles are hidden, matching fetchGame.
@@ -42,7 +41,7 @@ export default defineEventHandler(async (handler) => {
         user: { privacy: { not: PrivacySetting.PERSONAL } },
         OR: [
           { privacy: PrivacySetting.PUBLIC },
-          { user_id: { in: [me.id, ...friendIds] } },
+          ...(me ? [{ user_id: { in: [me.id, ...friendIds] } }] : []),
         ],
       };
 

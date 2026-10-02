@@ -171,6 +171,7 @@
                       >
                         <div class="p-2">
                           <FriendButton
+                            v-if="!singleCommunity"
                             :username="
                               update.request.user_id === me.data.user_id
                                 ? update.request.from_user.username
@@ -333,6 +334,7 @@ definePageMeta({
 });
 
 const me = useMe();
+const singleCommunity = useRuntimeConfig().public.singleCommunity;
 const games = useGames();
 const featureFlags = useFeatureFlags();
 const isCapacitor = useRuntimeConfig().public.isCapacitorBuild;

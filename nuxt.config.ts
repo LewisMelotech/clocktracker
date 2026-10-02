@@ -140,6 +140,10 @@ export default defineNuxtConfig({
       // Let every signed-in user browse all games on this instance (no
       // community membership needed). Disable with NUXT_PUBLIC_ALL_GAMES_BROWSING=false.
       allGamesBrowsing: true,
+      // Treat this instance as one community: every user is automatically
+      // friends with every other user, and the Friends and Communities menu
+      // items are hidden. Disable with NUXT_PUBLIC_SINGLE_COMMUNITY=false.
+      singleCommunity: true,
     },
   },
 

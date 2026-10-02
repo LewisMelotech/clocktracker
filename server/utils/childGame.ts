@@ -95,10 +95,17 @@ export async function findOrCreatePlayerChildGame(opts: {
   playerCharacters: ChildGameTokenData[];
   /** Existing related games in this game tree. */
   relatedGames: RelatedGame[];
-  /** If false, the child game won't need confirmation (e.g. claim_seat). Defaults to true. */
+  /** If false, the child game won't need confirmation (e.g. claim_seat). Defaults to true, or false on single-community instances. */
   waitingForConfirmation?: boolean;
 }): Promise<string | null> {
-  const { game, playerId, playerCharacters, relatedGames, waitingForConfirmation = true } = opts;
+  const {
+    game,
+    playerId,
+    playerCharacters,
+    relatedGames,
+    // Single-community instances auto-accept tags.
+    waitingForConfirmation = !useRuntimeConfig().public.singleCommunity,
+  } = opts;
 
   const existingGame = relatedGames.find((g) => g.user_id === playerId);
 
@@ -341,7 +348,8 @@ export async function findOrCreateStorytellerChildGame(opts: {
         connect: game.grimoire.map((g) => ({ id: g.id })),
       },
       parent_game_id: game.id,
-      waiting_for_confirmation: true,
+      // Single-community instances auto-accept storyteller tags.
+      waiting_for_confirmation: !useRuntimeConfig().public.singleCommunity,
       tags: [],
       notes: "",
     },

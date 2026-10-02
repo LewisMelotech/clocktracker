@@ -19,9 +19,9 @@ export default defineEventHandler(async (handler) => {
           { privacy: PrivacySetting.PRIVATE },
           {
             privacy: PrivacySetting.FRIENDS_ONLY,
-            friends: { some: { user_id: me?.id } },
+            friends: { some: { user_id: me?.id || "" } },
           },
-          { user_id: me?.id },
+          { user_id: me?.id || "" },
         ],
       },
     },

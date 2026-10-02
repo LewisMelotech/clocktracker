@@ -85,7 +85,7 @@
         </div>
         <div class="flex-none">
           <FriendButton
-            v-if="user && !isUser"
+            v-if="user && !isUser && !singleCommunity"
             :username="player.username"
             :user_id="player.user_id"
           />
@@ -133,6 +133,7 @@
 import { useRoleImage } from "~/composables/useRoleImage";
 const user = useUser();
 const games = useGames();
+const singleCommunity = useRuntimeConfig().public.singleCommunity;
 const roles = useRoles();
 const { roleBaseUrlFromId, roleBaseUrlFromRole, sizeAdjustedUrl } =
   useRoleImage();
