@@ -586,6 +586,21 @@
                             >
                                 Share
                             </Button>
+                            <Button
+                                v-if="
+                                    discordStatus?.enabled &&
+                                    (isMe || isAdminViewer) &&
+                                    !game.data.waiting_for_confirmation
+                                "
+                                @click="postToDiscord"
+                                color="discord"
+                                icon="discord"
+                                :iconSpin="discordInFlight"
+                                :disabled="discordInFlight"
+                                wide
+                            >
+                                Post to Discord
+                            </Button>
                         </div>
                         <template v-if="game.data.bgg_id">
                             <Button
@@ -834,24 +849,6 @@
                                                 icon="edit"
                                             >
                                                 <div id="edit-game">Edit</div>
-                                            </ButtonSubmenu>
-                                        </MenuItem>
-                                        <MenuItem
-                                            v-if="
-                                                discordStatus?.enabled &&
-                                                !game.data
-                                                    .waiting_for_confirmation
-                                            "
-                                        >
-                                            <ButtonSubmenu
-                                                @click="postToDiscord"
-                                                variant="filled"
-                                                color="discord"
-                                                icon="discord"
-                                                :iconSpin="discordInFlight"
-                                                :disabled="discordInFlight"
-                                            >
-                                                Post to Discord
                                             </ButtonSubmenu>
                                         </MenuItem>
                                         <MenuItem v-if="isMe">
