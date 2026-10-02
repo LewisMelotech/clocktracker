@@ -836,6 +836,24 @@
                                                 <div id="edit-game">Edit</div>
                                             </ButtonSubmenu>
                                         </MenuItem>
+                                        <MenuItem
+                                            v-if="
+                                                discordStatus?.enabled &&
+                                                !game.data
+                                                    .waiting_for_confirmation
+                                            "
+                                        >
+                                            <ButtonSubmenu
+                                                @click="postToDiscord"
+                                                variant="filled"
+                                                color="discord"
+                                                icon="discord"
+                                                :iconSpin="discordInFlight"
+                                                :disabled="discordInFlight"
+                                            >
+                                                Post to Discord
+                                            </ButtonSubmenu>
+                                        </MenuItem>
                                         <MenuItem v-if="isMe">
                                             <ButtonSubmenu
                                                 @click="deleteGame(false)"
@@ -1327,6 +1345,29 @@ async function initPostToBGG() {
     if (game.value.status !== Status.SUCCESS) return;
 
     await postToBGG(game.value.data, anonymize.value);
+}
+
+const { data: discordStatus } = useFetch("/api/discord/status", {
+    server: false,
+});
+const discordInFlight = ref(false);
+
+async function postToDiscord() {
+    if (discordInFlight.value) return;
+
+    discordInFlight.value = true;
+    try {
+        await $fetch(`/api/games/${gameId}/post_to_discord`, {
+            method: "POST",
+        });
+        alert("Posted to Discord.");
+    } catch (error: any) {
+        alert(
+            `Couldn't post to Discord: ${error?.statusMessage ?? error?.message ?? "unknown error"}`,
+        );
+    } finally {
+        discordInFlight.value = false;
+    }
 }
 
 function formatDate(date: Date) {
