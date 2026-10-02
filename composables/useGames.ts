@@ -113,6 +113,7 @@ export const useGames = defineStore("games", {
     games: new Map<string, FetchStatus<GameRecord>>(),
     players: new Map<string, FetchStatus<number>>(),
     similar: new Map<string, FetchStatus<string[]>>(),
+    allGameIds: { status: Status.IDLE } as FetchStatus<string[]>,
   }),
   getters: {
     getGame(): (gameId: string) => FetchStatus<GameRecord> {
@@ -258,6 +259,17 @@ export const useGames = defineStore("games", {
 
         return { status: Status.SUCCESS, data: games };
       };
+    },
+    getAll(): FetchStatus<GameRecord[]> {
+      if (this.allGameIds.status !== Status.SUCCESS) return this.allGameIds;
+
+      const games: GameRecord[] = [];
+      for (const id of this.allGameIds.data) {
+        const gameStatus = this.games.get(id);
+        if (gameStatus?.status === Status.SUCCESS) games.push(gameStatus.data);
+      }
+
+      return { status: Status.SUCCESS, data: games };
     },
     getPendingByPlayer(): (username: string) => FetchStatus<GameRecord[]> {
       return (username: string) => {
@@ -572,6 +584,31 @@ export const useGames = defineStore("games", {
             data: markRaw(game),
           });
         }
+      });
+    },
+    async fetchAllGames() {
+      if (this.allGameIds.status !== Status.SUCCESS)
+        this.allGameIds = { status: Status.LOADING };
+
+      let games: GameRecord[];
+      try {
+        games = await $fetch<GameRecord[]>("/api/games/all");
+      } catch (error) {
+        this.allGameIds = { status: Status.ERROR, error };
+        return;
+      }
+
+      this.$patch((state) => {
+        for (const game of games) {
+          state.games.set(game.id, {
+            status: Status.SUCCESS,
+            data: markRaw(game),
+          });
+        }
+        state.allGameIds = {
+          status: Status.SUCCESS,
+          data: games.map((g) => g.id),
+        };
       });
     },
     async importGames(showLoader: () => void) {

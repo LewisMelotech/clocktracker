@@ -104,7 +104,7 @@ export async function anonymizeGame(
     }
     // Anonymize the game. All names should be shortened to their first character, excluding "@".
     game.storyteller = shortenName(game.storyteller);
-    game.co_storytellers.map(shortenName);
+    game.co_storytellers = game.co_storytellers.map(shortenName);
     game.location = shortenName(game.location);
     game.community_name = shortenName(game.community_name);
     game.community = undefined;
@@ -112,6 +112,7 @@ export async function anonymizeGame(
     game.grimoire.map((g) =>
       g.tokens.map((t) => {
         t.player_id = null;
+        t.player = undefined;
         if (t.player_name) {
           t.player_name = shortenName(t.player_name);
         }

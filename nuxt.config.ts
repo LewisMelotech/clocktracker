@@ -137,6 +137,9 @@ export default defineNuxtConfig({
       vapidPublicKey: process.env.VAPID_PUBLIC_KEY ?? "",
       apiBaseUrl: isCapacitorBuild ? "https://clocktracker.app" : "",
       isCapacitorBuild,
+      // Let every signed-in user browse all games on this instance (no
+      // community membership needed). Disable with NUXT_PUBLIC_ALL_GAMES_BROWSING=false.
+      allGamesBrowsing: true,
     },
   },
 

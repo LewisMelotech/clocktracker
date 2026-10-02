@@ -59,6 +59,16 @@
                         <span>My Games</span>
                     </NavLink>
                 </li>
+                <li v-if="allGamesBrowsing">
+                    <NavLink
+                        id="all-games"
+                        to="/games"
+                        icon="clockmaker"
+                        title="All Games"
+                    >
+                        <span>All Games</span>
+                    </NavLink>
+                </li>
                 <li>
                     <NavLink
                         id="my-stats"
@@ -212,6 +222,7 @@ const { showMenu, toggleSidebar, closeSidebar, isMobile } = useSidebarState();
 const me = useMe();
 const friends = useFriends();
 const featureFlags = useFeatureFlags();
+const allGamesBrowsing = useRuntimeConfig().public.allGamesBrowsing;
 const forumUnreadCount = ref(0);
 const canAccessAdmin = ref(false);
 
