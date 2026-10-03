@@ -9,7 +9,10 @@
           'hidden md:block': selectedTab === 'events',
         }"
       >
-        <div class="max-w-[800px] w-full mx-auto mt-4 mb-8 space-y-8">
+        <div
+          class="w-full mx-auto mt-4 mb-8 space-y-8"
+          :class="singleCommunity ? 'max-w-[1200px]' : 'max-w-[800px]'"
+        >
           
           <div class="space-y-2">
             <div>
@@ -65,7 +68,20 @@
 
           <hr class="border-stone-300 dark:border-stone-700/50" />
 
-          <div class="space-y-2">
+          <div v-if="singleCommunity" class="space-y-2">
+            <h2 class="text-3xl font-sorts">Community Stats</h2>
+            <CommunityStatsPanel
+              :stats="instanceStats"
+              :pending="instanceStatsPending"
+              :error="instanceStatsError"
+              :members="instanceStats?.members ?? []"
+              :is-member="true"
+              non-member-label="Include players without an account"
+              class="!px-0"
+            />
+          </div>
+
+          <div v-else class="space-y-2">
             <h2 class="text-3xl font-sorts">Activity Feed</h2>
             <ClientOnly>
               <ul class="mt-4 flex flex-col gap-3 lg:gap-6">
@@ -339,7 +355,19 @@ const games = useGames();
 const featureFlags = useFeatureFlags();
 const isCapacitor = useRuntimeConfig().public.isCapacitorBuild;
 const { selectionChanged } = useHaptics();
-const { data: initialPage } = await useFetch("/api/dashboard/recent");
+// Single-community instances show instance-wide stats instead of the feed.
+const { data: initialPage } = await useFetch("/api/dashboard/recent", {
+  immediate: !singleCommunity,
+});
+const {
+  data: instanceStats,
+  pending: instanceStatsPending,
+  error: instanceStatsError,
+} = useFetch("/api/instance-stats", {
+  immediate: singleCommunity,
+  server: false,
+  lazy: true,
+});
 const roleOfTheDay = await useFetch("/api/role_of_the_day");
 const scriptsOfTheWeek = await useFetch("/api/scripts_of_the_week");
 
